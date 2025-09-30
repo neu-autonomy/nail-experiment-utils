@@ -30,6 +30,7 @@ Controls:
   Help:      H
 """
     print(msg)
+    return msg
 
 
 def make_transform(R=None, t=None):
@@ -159,26 +160,6 @@ def align_pointclouds(
         "src_full": src_full,
         "tgt_full": tgt_full,
     }
-
-    # def compute_icp_clouds():
-    #     """Prepares the point clouds for ICP by downsampling and computing normals."""
-    #     vs = state["voxel_icp"]
-
-    #     # Make copies before transforming/downsampling
-    #     src_full_copy = o3d.geometry.PointCloud(state["src_full"])
-    #     src_full_copy.transform(state["T"])  # safe: operates on the copy
-    #     src_icp = voxel_down_if_needed(src_full_copy, vs)
-
-    #     tgt_icp = o3d.geometry.PointCloud(state["tgt_full"])
-    #     tgt_icp = voxel_down_if_needed(tgt_icp, vs)
-
-    #     if state["icp_point_to_plane"]:
-    #         rad = max(1e-6, state["normals_radius_factor"] * vs)
-    #         tgt_icp.estimate_normals(
-    #             o3d.geometry.KDTreeSearchParamHybrid(radius=rad, max_nn=30)
-    #         )
-
-    #     return src_icp, tgt_icp
 
     def compute_icp_clouds(voxel):
         """Downsample + (re)compute normals for the current T and given voxel."""
@@ -491,7 +472,7 @@ def align_pointclouds(
     vis.register_key_callback(ord("C"), center_view)
 
     def help_callback(vis):
-        print_help()
+        msg = print_help()
         return False
 
     vis.register_key_callback(ord("H"), help_callback)
