@@ -129,9 +129,7 @@ parse_spec() {
   local rest="${raw#*:}"
 
   # topic = up to '@' or ',' or end
-  local topic="$rest"
-  [[ "$topic" == *"@"* ]] && topic="${topic%%@*}"
-  [[ "$topic" == *","* ]] && topic="${topic%%,*}"
+  topic="${rest%%[@,]*}"
   [[ -z "$topic" || "$topic" != /* ]] && { echo "::::"; return; }
 
   # hz = number after '@' if present, until ',' or end
