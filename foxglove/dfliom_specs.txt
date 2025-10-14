@@ -1,0 +1,6 @@
+# specs.txt
+img:/front/image_raw@4,compressed=1,quality=75
+img:/rear/image_raw@2,compressed=1
+pcl:/ouster/points@3,voxel=0.15
+any:/tf@10
+any:/odom@10
