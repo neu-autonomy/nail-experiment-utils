@@ -225,61 +225,7 @@ for raw_spec in "${SPECS[@]}"; do
 done
 
 
-echo
-echo "[run] Building pipelines from specs:"
-for spec in "${SPECS[@]}"; do
-  # shellcheck disable=SC2034
-  read -r type topic hz opts <<<"$(parse_spec "${spec}")"
-  [[ -z "${type}" || -z "${topic}" ]] && { echo "  ! bad spec: ${spec}"; exit 2; }
 
-  case "${type}" in
-    img)
-      # defaults
-      local_hz="${hz:-5}"
-      compressed="$(opt_get "${opts}" "compressed" "1")"
-      quality="$(opt_get "${opts}" "quality" "80")"
-
-      out_topic="${topic}_fg"
-      launch_bg "throttle(img ${topic} -> ${out_topic} @ ${local_hz} Hz)" \
-        ros2 run topic_tools throttle messages "${topic}" "${local_hz}" "${out_topic}"
-
-      if [[ "${compressed}" == "1" ]]; then
-        launch_bg "image_transport(compressed ${out_topic}, q=${quality})" \
-          bash -lc "ros2 run image_transport republish raw in:=${out_topic} compressed out:=${out_topic} --ros-args -p jpeg_quality:=${quality}"
-        echo "  - ${out_topic}/compressed   (${local_hz} Hz, JPEG~${quality}%)"
-      else
-        echo "  - ${out_topic}              (${local_hz} Hz)"
-      fi
-      ;;
-    pcl)
-      local_hz="${hz:-5}"
-      voxel="$(opt_get "${opts}" "voxel" "")"
-
-      pre="${topic}"
-      if [[ -n "${voxel}" ]]; then
-        vox="${topic}_vox"
-        launch_bg "pcl_ros(voxel_grid ${topic} -> ${vox}, leaf=${voxel} m)" \
-          ros2 run pcl_ros voxel_grid --ros-args -r input:="${topic}" -r output:="${vox}" -p leaf_size:="${voxel}"
-        pre="${vox}"
-      fi
-      out_pc="${pre}_fg"
-      launch_bg "throttle(pcl ${pre} -> ${out_pc} @ ${local_hz} Hz)" \
-        ros2 run topic_tools throttle messages "${pre}" "${local_hz}" "${out_pc}"
-      echo "  - ${out_pc}                 (${local_hz} Hz$( [[ -n "${voxel}" ]] && echo ", voxel ${voxel} m"))"
-      ;;
-    any)
-      local_hz="${hz:-5}"
-      out_any="${topic}_fg"
-      launch_bg "throttle(any ${topic} -> ${out_any} @ ${local_hz} Hz)" \
-        ros2 run topic_tools throttle messages "${topic}" "${local_hz}" "${out_any}"
-      echo "  - ${out_any}                 (${local_hz} Hz)"
-      ;;
-    *)
-      echo "  ! unknown type '${type}' in spec: ${spec}" >&2
-      exit 2
-      ;;
-  esac
-done
 
 ########################################
 # Start Foxglove bridge
