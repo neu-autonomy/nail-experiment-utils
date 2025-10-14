@@ -129,7 +129,7 @@ parse_spec() {
   local rest="${raw#*:}"
 
   # topic = up to '@' or ',' or end
-  topic="${rest%%[@,]*}"
+  local topic="${rest%%[@,]*}"
   [[ -z "$topic" || "$topic" != /* ]] && { echo "::::"; return; }
 
   # hz = number after '@' if present, until ',' or end
@@ -174,7 +174,12 @@ echo
 echo "[run] Building pipelines from specs:"
 for raw_spec in "${SPECS[@]}"; do
   # parse into 4 lines; tolerate missing HZ/opts
-  read -r type topic hz opts <<<"$(parse_spec "$raw_spec")"
+  mapfile -t values < <(parse_spec "$raw_spec")
+  type="${values[0]:-}"
+  topic="${values[1]:-}"
+  hz="${values[2]:-}"
+  opts="${values[3]:-}"
+
   if [[ -z "${type}" || -z "${topic}" ]]; then
     echo "  ! bad spec: ${raw_spec}"
     exit 2
