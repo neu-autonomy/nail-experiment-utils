@@ -1,0 +1,2 @@
+/usr/bin/env bash -lc \
+"TOPIC_SPECS='img:/front/image_raw@4,compressed=1,quality=75' ./run_foxglove_flex.sh"
