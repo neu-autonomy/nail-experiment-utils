@@ -16,10 +16,16 @@ set -euo pipefail
 # CLI parsing (only --spec-file and --help)
 ########################################
 SPEC_FILE=""
+PARSE_ONLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --spec-file)
+      if [[ -z "${2:-}" || "${2#-}" != "${2}" ]]; then
+        echo "Missing argument for --spec-file" >&2; exit 2
+      fi
       SPEC_FILE="$2"; shift 2;;
+    --parse-only)
+      PARSE_ONLY=1; shift;;
     --help|-h)
       cat <<'USAGE'
 Usage: run_foxglove_flex.sh [--spec-file specs.txt]
@@ -66,6 +72,41 @@ if [[ ${#SPECS[@]} -eq 0 ]]; then
   exit 1
 fi
 
+# Source parser helpers early so --parse-only can run without sourcing ROS
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/parse_specs.sh" ]]; then
+  # shellcheck disable=SC1090
+  source "${SCRIPT_DIR}/parse_specs.sh"
+else
+  echo "ERROR: missing ${SCRIPT_DIR}/parse_specs.sh" >&2
+  exit 1
+fi
+
+# If parse-only was requested, print parsed entries and exit before sourcing ROS
+if [[ "${PARSE_ONLY:-0}" -eq 1 ]]; then
+  echo
+  echo "[run] parse-only: printing parsed specs"
+  for raw_spec in "${SPECS[@]}"; do
+    mapfile -t values < <(parse_spec "$raw_spec")
+    type="${values[0]:-}"
+    topic="${values[1]:-}"
+    hz="${values[2]:-}"
+    opts="${values[3]:-}"
+    if [[ -z "$type" || -z "$topic" ]]; then
+      echo "  ! bad spec: $raw_spec"
+      continue
+    fi
+    echo "  - $raw_spec"
+    echo "      type: $type"
+    echo "      topic: $topic"
+    echo "      hz: ${hz:-<none>}"
+    echo "      opts: ${opts:-<none>}"
+  done
+  echo
+  echo "[run] parse-only: done"
+  exit 0
+fi
+
 ########################################
 # Sourcing ROS (temporarily disable -u)
 ########################################
@@ -107,64 +148,17 @@ launch_bg () {
 }
 
 ########################################
-# Helpers
+# Helpers (sourced)
 ########################################
-# parse "<TYPE>:<TOPIC>[@HZ][,k=v,...]"
-trim_spec() {                         # strip leading/trailing spaces + CR
-  local s="${1//$'\r'/}"
-  s="${s#"${s%%[![:space:]]*}"}"
-  s="${s%"${s##*[![:space:]]}"}"
-  printf '%s' "$s"
-}
-
-parse_spec() {
-  # Input: TYPE:TOPIC[@HZ][,k=v,...]
-  local raw="$(trim_spec "$1")"
-  [[ -z "$raw" ]] && { echo "::::"; return; }
-
-  # Validate prefix TYPE:
-  local type="${raw%%:*}"
-  [[ "$type" != "img" && "$type" != "pcl" && "$type" != "any" ]] && { echo "::::"; return; }
-
-  local rest="${raw#*:}"
-
-  # topic = up to '@' or ',' or end
-  local topic="${rest%%[@,]*}"
-  [[ -z "$topic" || "$topic" != /* ]] && { echo "::::"; return; }
-
-  # hz = number after '@' if present, until ',' or end
-  local hz=""
-  if [[ "$rest" == *"@"* ]]; then
-    local after_at="${rest#*@}"
-    hz="${after_at%%,*}"
-    # allow ints/floats
-    [[ "$hz" =~ ^[0-9]+([.][0-9]+)?$ ]] || hz=""
-  fi
-
-  # opts = stuff after the first ',' (if any)
-  local opts=""
-  if [[ "$rest" == *","* ]]; then
-    opts="${rest#*,}"
-    opts="$(trim_spec "$opts")"
-  fi
-
-  printf '%s\n%s\n%s\n%s\n' "$type" "$topic" "$hz" "$opts"
-}
-
-opt_get() {
-  # get key from "k1=v1,k2=v2" (no spaces)
-  local kvs="$1" key="$2" default="${3:-}"
-  IFS=',' read -ra parts <<< "$kvs"
-  for kv in "${parts[@]}"; do
-    [[ -z "$kv" ]] && continue
-    local k="${kv%%=*}"
-    local v="${kv#*=}"
-    if [[ "$k" == "$key" ]]; then
-      printf '%s' "$v"; return 0
-    fi
-  done
-  printf '%s' "$default"
-}
+# parse helpers are in parse_specs.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/parse_specs.sh" ]]; then
+  # shellcheck disable=SC1090
+  source "${SCRIPT_DIR}/parse_specs.sh"
+else
+  echo "ERROR: missing ${SCRIPT_DIR}/parse_specs.sh" >&2
+  exit 1
+fi
 
 
 ########################################
@@ -228,6 +222,13 @@ for raw_spec in "${SPECS[@]}"; do
       ;;
   esac
 done
+
+# If parse-only was requested, print a summary and exit before touching ROS or launching processes
+if [[ "${PARSE_ONLY:-0}" -eq 1 ]]; then
+  echo
+  echo "[run] parse-only mode: parsed ${#SPECS[@]} specs; exiting before launching bridge."
+  exit 0
+fi
 
 
 
