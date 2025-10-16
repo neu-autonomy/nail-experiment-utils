@@ -1,0 +1,12 @@
+Host scout
+    HostName 192.168.0.150
+    User nail
+    ForwardX11 yes
+    ForwardX11Trusted yes
+
+Host f15
+    HostName 192.168.8.10
+    User f1-fifth
+    ForwardX11 yes
+    ForwardX11Trusted yes
+
