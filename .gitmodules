@@ -1,0 +1,3 @@
+[submodule "experiment-dockers"]
+	path = experiment-dockers
+	url = git@github.com:neu-autonomy/experiment-dockers.git
